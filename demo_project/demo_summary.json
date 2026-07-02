@@ -1,0 +1,23 @@
+{
+  "audio_files": 48,
+  "detections": 589,
+  "species_counts": {
+    "Myotis mystacinus": 82,
+    "Rhinolophus ferrumequinum": 79,
+    "Pipistrellus pygmaeus": 56,
+    "Pipistrellus pipistrellus": 50,
+    "Rhinolophus hipposideros": 47,
+    "Myotis daubentonii": 44,
+    "Myotis nattereri": 33,
+    "Barbastellus barbastellus": 30,
+    "Plecotus austriacus": 30,
+    "Pipistrellus nathusii": 22,
+    "Myotis brandtii": 21,
+    "Eptesicus serotinus": 20,
+    "Myotis bechsteinii": 19,
+    "Plecotus auritus": 18,
+    "Nyctalus noctula": 16,
+    "Myotis alcathoe": 14,
+    "Nyctalus leisleri": 8
+  }
+}

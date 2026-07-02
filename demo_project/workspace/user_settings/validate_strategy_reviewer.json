@@ -1,0 +1,10 @@
+{
+  "validate_strategy_goal": "review_strongest",
+  "validate_strategy_balance": "all",
+  "validate_strategy_target_mode": "total_clips",
+  "validate_strategy_target_value": 100,
+  "validate_strategy_bins": 5,
+  "validate_strategy_seed": 42,
+  "validate_strategy_dont_auto_show": false,
+  "validate_strategy_prompt_seen": true
+}
