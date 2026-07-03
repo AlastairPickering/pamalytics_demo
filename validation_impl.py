@@ -2731,7 +2731,6 @@ def render_validation(detections: Optional[pd.DataFrame], sources: dict) -> None
                     st.session_state["validate_strategy_modal_open"] = False
                     st.session_state["validate_strategy_dont_auto_show"] = bool(dont_show)
                     st.session_state["validate_strategy_prompt_seen"] = True
-                    st.session_state["pa_demo_preparing_review"] = True
                     _save_strategy_state(proj_root)
                     if hasattr(st, "rerun"):
                         st.rerun()
@@ -2762,6 +2761,12 @@ def render_validation(detections: Optional[pd.DataFrame], sources: dict) -> None
 
         if st.session_state.get("validate_strategy_modal_open", False):
             _strategy_dialog()
+
+            # The strategy wizard is an overlay. While it is open, do not render
+            # the validation page underneath it. This prevents review cards and
+            # spectrograms from being prepared in the background on first launch,
+            # which otherwise makes the Start review click appear to hang.
+            st.stop()
 
     _render_strategy_summary_bar(df_all)
 

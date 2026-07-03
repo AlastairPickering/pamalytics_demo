@@ -30,11 +30,13 @@ def reset_demo():
         VALIDATED_PATH.unlink()
 
     for key in list(st.session_state.keys()):
-        if str(key).startswith(("val_", "active_dataset", "pa_df_det")):
+        if str(key).startswith(("validate_", "val_", "active_dataset", "pa_df_det")):
             st.session_state.pop(key, None)
 
 
 def apply_demo_display_defaults():
+    # Demo-specific display defaults only.
+    # These are deliberately the only validation-page settings overridden here.
     st.session_state["validate_lock_freq"] = True
     st.session_state["validate_fmin_khz"] = 0.0
     st.session_state["validate_fmax_khz"] = 100.0
@@ -189,11 +191,7 @@ def render_validation_app():
         st.error("Validation module does not expose render_validation().")
         st.stop()
 
-    if st.session_state.pop("pa_demo_preparing_review", False):
-        with st.spinner("Preparing review clips and loading spectrograms..."):
-            render_validation(df_det, sources)
-    else:
-        render_validation(df_det, sources)
+    render_validation(df_det, sources)
 
 
 with st.sidebar:
