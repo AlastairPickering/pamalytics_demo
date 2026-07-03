@@ -2731,6 +2731,7 @@ def render_validation(detections: Optional[pd.DataFrame], sources: dict) -> None
                     st.session_state["validate_strategy_modal_open"] = False
                     st.session_state["validate_strategy_dont_auto_show"] = bool(dont_show)
                     st.session_state["validate_strategy_prompt_seen"] = True
+                    st.session_state["pa_demo_preparing_review"] = True
                     _save_strategy_state(proj_root)
                     if hasattr(st, "rerun"):
                         st.rerun()

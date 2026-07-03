@@ -189,7 +189,11 @@ def render_validation_app():
         st.error("Validation module does not expose render_validation().")
         st.stop()
 
-    render_validation(df_det, sources)
+    if st.session_state.pop("pa_demo_preparing_review", False):
+        with st.spinner("Preparing review clips and loading spectrograms..."):
+            render_validation(df_det, sources)
+    else:
+        render_validation(df_det, sources)
 
 
 with st.sidebar:
