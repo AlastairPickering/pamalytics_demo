@@ -135,17 +135,6 @@ def render_welcome():
         if st.button("Start demo", type="primary", use_container_width=True):
             start_validation_workflow(open_strategy=True)
 
-    st.markdown(
-        """
-        <div class="pa-welcome-note">
-            This hosted demo starts after project setup. The full local PAMalytics application
-            also includes classifier-output import, schema mapping and audio-linkage tools.
-        </div>
-        """,
-        unsafe_allow_html=True,
-    )
-
-
 def render_validation_app():
     if not PROJECT_ROOT.exists():
         st.error(f"Demo project not found: {PROJECT_ROOT}")
