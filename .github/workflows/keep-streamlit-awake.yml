@@ -1,9 +1,10 @@
+
 name: Keep Streamlit apps awake
 
 on:
   schedule:
-    # Visit both apps every 8 hours
-    - cron: "17 */8 * * *"
+    # Visit both apps every 4 hours
+    - cron: "17 */4 * * *"
 
   # Allow manual testing from the GitHub Actions page
   workflow_dispatch:
@@ -11,7 +12,7 @@ on:
 jobs:
   visit-apps:
     runs-on: ubuntu-latest
-    timeout-minutes: 10
+    timeout-minutes: 15
 
     steps:
       - name: Set up Python
@@ -28,6 +29,7 @@ jobs:
       - name: Visit both Streamlit apps
         run: |
           python - <<'PY'
+          import re
           from playwright.sync_api import sync_playwright
 
           urls = [
@@ -40,19 +42,54 @@ jobs:
 
               for url in urls:
                   page = browser.new_page()
-                  print(f"Opening {url}")
+                  print(f"Opening {url}", flush=True)
 
-                  page.goto(
-                      url,
-                      wait_until="domcontentloaded",
-                      timeout=120_000,
-                  )
+                  try:
+                      page.goto(
+                          url,
+                          wait_until="domcontentloaded",
+                          timeout=120_000,
+                      )
 
-                  # Give Streamlit time to establish its WebSocket session
-                  page.wait_for_timeout(30_000)
+                      page.wait_for_timeout(5_000)
 
-                  print(f"Successfully visited {page.url}")
-                  page.close()
+                      wake_button = page.get_by_role(
+                          "button",
+                          name=re.compile(
+                              r"get this app back up|wake",
+                              re.IGNORECASE,
+                          ),
+                      )
+
+                      if wake_button.count() > 0 and wake_button.first.is_visible():
+                          print(f"App sleeping. Waking {url}", flush=True)
+                          wake_button.first.click()
+
+                      page.wait_for_selector(
+                          '[data-testid="stAppViewContainer"]',
+                          state="visible",
+                          timeout=180_000,
+                      )
+
+                      page.wait_for_function(
+                          """() => {
+                              const app = document.querySelector(
+                                  '[data-testid="stAppViewContainer"]'
+                              );
+                              return app && app.innerText.trim().length > 0;
+                          }""",
+                          timeout=180_000,
+                      )
+
+                      page.wait_for_timeout(15_000)
+
+                      print(
+                          f"SUCCESS: App loaded at {page.url}",
+                          flush=True,
+                      )
+
+                  finally:
+                      page.close()
 
               browser.close()
           PY
