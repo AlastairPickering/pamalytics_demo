@@ -3,10 +3,7 @@ name: Keep Streamlit apps awake
 
 on:
   schedule:
-    # Visit both apps every 4 hours
     - cron: "17 */4 * * *"
-
-  # Allow manual testing from the GitHub Actions page
   workflow_dispatch:
 
 jobs:
@@ -22,74 +19,153 @@ jobs:
 
       - name: Install Playwright and Chromium
         run: |
-          python -m pip install --upgrade pip
-          pip install playwright
-          playwright install --with-deps chromium
+          python -m pip install playwright
+          python -m playwright install --with-deps chromium
 
-      - name: Visit both Streamlit apps
+      - name: Visit and wake Streamlit apps
         run: |
           python - <<'PY'
           import re
+          import time
+          from pathlib import Path
+          from urllib.parse import urlsplit
           from playwright.sync_api import sync_playwright
 
-          urls = [
-              "https://forest-viewer.streamlit.app/",
-              "https://pamalytics-demo.streamlit.app/",
-          ]
+          apps = {
+              "forest-viewer": "https://forest-viewer.streamlit.app/",
+              "pamalytics-demo": "https://pamalytics-demo.streamlit.app/",
+          }
+
+          Path("diagnostics").mkdir(exist_ok=True)
+          failures = []
 
           with sync_playwright() as playwright:
               browser = playwright.chromium.launch(headless=True)
 
-              for url in urls:
+              for name, url in apps.items():
                   page = browser.new_page()
-                  print(f"Opening {url}", flush=True)
+                  print(f"\nChecking {name}", flush=True)
 
                   try:
                       page.goto(
                           url,
                           wait_until="domcontentloaded",
-                          timeout=120_000,
+                          timeout=120000,
                       )
 
-                      page.wait_for_timeout(5_000)
+                      started = time.monotonic()
+                      loaded = False
+                      wake_clicks = 0
 
-                      wake_button = page.get_by_role(
-                          "button",
-                          name=re.compile(
-                              r"get this app back up|wake",
-                              re.IGNORECASE,
-                          ),
-                      )
+                      while time.monotonic() - started < 180:
 
-                      if wake_button.count() > 0 and wake_button.first.is_visible():
-                          print(f"App sleeping. Waking {url}", flush=True)
-                          wake_button.first.click()
+                          for frame in page.frames:
+                              wake = frame.get_by_role(
+                                  "button",
+                                  name=re.compile(
+                                      "get this app back up",
+                                      re.I,
+                                  ),
+                              )
 
-                      page.wait_for_selector(
-                          '[data-testid="stAppViewContainer"]',
-                          state="visible",
-                          timeout=180_000,
-                      )
+                              if wake.count() and wake.first.is_visible():
+                                  print("Sleeping app detected", flush=True)
+                                  wake.first.click(timeout=15000)
+                                  wake_clicks += 1
+                                  print("Wake-up requested", flush=True)
+                                  break
 
-                      page.wait_for_function(
-                          """() => {
-                              const app = document.querySelector(
+                          for frame in page.frames:
+                              app = frame.locator(
                                   '[data-testid="stAppViewContainer"]'
-                              );
-                              return app && app.innerText.trim().length > 0;
-                          }""",
-                          timeout=180_000,
-                      )
+                              )
 
-                      page.wait_for_timeout(15_000)
+                              if app.count() and app.first.is_visible():
+                                  content = app.first.inner_text(timeout=5000)
+
+                                  if len(content.strip()) > 20:
+                                      loaded = True
+                                      break
+
+                          if loaded:
+                              break
+
+                          elapsed = int(time.monotonic() - started)
+
+                          if elapsed % 30 < 5:
+                              print(
+                                  f"{name}: waiting ({elapsed}s)",
+                                  flush=True,
+                              )
+
+                          page.wait_for_timeout(5000)
+
+                      if not loaded:
+                          raise RuntimeError(
+                              "Streamlit content was not detected"
+                          )
 
                       print(
-                          f"SUCCESS: App loaded at {page.url}",
+                          f"SUCCESS: {name} loaded "
+                          f"(wake clicks: {wake_clicks})",
                           flush=True,
                       )
+
+                      page.wait_for_timeout(20000)
+
+                  except Exception as error:
+                      print(f"FAILED: {name}: {error}", flush=True)
+
+                      parts = urlsplit(page.url)
+                      print(
+                          f"Final page: {parts.scheme}://"
+                          f"{parts.netloc}{parts.path}",
+                          flush=True,
+                      )
+
+                      try:
+                          print(
+                              "Page text:\n"
+                              + page.locator("body").inner_text()[:1500],
+                              flush=True,
+                          )
+
+                          print(
+                              "Visible buttons:",
+                              page.locator("button").all_inner_texts()[:20],
+                              flush=True,
+                          )
+
+                          page.screenshot(
+                              path=f"diagnostics/{name}.png",
+                              full_page=True,
+                          )
+
+                      except Exception as diagnostic_error:
+                          print(
+                              f"Diagnostic error: {diagnostic_error}",
+                              flush=True,
+                          )
+
+                      failures.append(name)
 
                   finally:
                       page.close()
 
               browser.close()
+
+          if failures:
+              raise SystemExit(
+                  "Apps failed: " + ", ".join(failures)
+              )
+
+          print("\nBoth Streamlit apps loaded successfully.")
           PY
+
+      - name: Upload failure screenshots
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: streamlit-diagnostics
+          path: diagnostics/
+          if-no-files-found: ignore
